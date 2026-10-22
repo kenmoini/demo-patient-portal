@@ -1,5 +1,5 @@
 import random
-from datetime import datetime
+from datetime import date, datetime
 
 from faker import Faker
 from sqlalchemy import select
@@ -24,6 +24,10 @@ CONDITIONS = [
 ]
 SEXES = ["Female", "Male"]
 
+# Fixed DOB bounds so output never depends on today's date.
+_DOB_START = date(1930, 1, 1)
+_DOB_END = date(2008, 1, 1)
+
 # Fixed timestamp so created_at is identical across runs.
 _SEED_TIMESTAMP = datetime(2026, 1, 1, 0, 0, 0)
 
@@ -47,7 +51,7 @@ def seed(session: Session, n: int = 100, seed: int = 1337) -> None:
             Patient(
                 mrn=f"MRN-{i:06d}",
                 full_name=name,
-                dob=fake.date_of_birth(minimum_age=1, maximum_age=95),
+                dob=fake.date_between_dates(date_start=_DOB_START, date_end=_DOB_END),
                 sex=sex,
                 primary_condition=rng.choice(CONDITIONS),
                 attending_provider=rng.choice(providers),
@@ -61,7 +65,7 @@ def seed(session: Session, n: int = 100, seed: int = 1337) -> None:
             Patient(
                 mrn=CANARY_MRN,
                 full_name=CANARY_NAME,
-                dob=datetime(1980, 1, 1).date(),
+                dob=date(1980, 1, 1),
                 sex="Female",
                 primary_condition="Canary condition (synthetic)",
                 attending_provider="Dr. Canary",
