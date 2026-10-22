@@ -21,7 +21,7 @@ spec:
       initContainers: []
       containers:
         - name: patient-portal
-          image: ghcr.io/kenmoini/patient-portal:latest
+          image: ghcr.io/kenmoini/demo-patient-portal:latest
           imagePullPolicy: Always
           ports:
             - name: http
