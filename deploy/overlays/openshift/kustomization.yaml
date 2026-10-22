@@ -6,3 +6,18 @@ namespace: patient-portal
 resources:
   - ../../base/
   - route.yaml
+  - configmap-root-ca.yaml
+
+patches:
+  - path: patch-env.yaml
+    target:
+      kind: Deployment
+      name: patient-portal
+  - path: patch-volumeMounts.yaml
+    target:
+      kind: Deployment
+      name: patient-portal
+  - path: patch-volumes.yaml
+    target:
+      kind: Deployment
+      name: patient-portal

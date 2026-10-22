@@ -1,0 +1,8 @@
+- op: add
+  path: /spec/template/spec/containers/0/volumeMounts/-
+  value:
+    name: trusted-cabundle
+    readOnly: true
+    # mountPath: /etc/ssl/certs/custom-ca.crt
+    mountPath: /etc/ssl/certs/ca-certificates.crt
+    subPath: ca-bundle.crt

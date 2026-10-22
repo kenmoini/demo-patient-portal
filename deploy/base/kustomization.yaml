@@ -9,4 +9,5 @@ resources:
   - serviceaccount.yaml
   - service.yaml
   - deployment.yaml
+  - pvc.yaml
   # - example.oidc-secret.yaml

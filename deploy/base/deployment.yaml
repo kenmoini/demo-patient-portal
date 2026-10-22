@@ -43,7 +43,9 @@ spec:
           envFrom:
             - secretRef:
                 name: patient-portal-config
-          volumeMounts: []
+          volumeMounts:
+            - name: db
+              mountPath: /data/db
           resources:
             requests: { cpu: 100m, memory: 128Mi }
             limits: { cpu: "1", memory: 512Mi }
@@ -60,4 +62,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
-      volumes: []
+      volumes:
+      - name: db
+        persistentVolumeClaim:
+          claimName: sqlite
