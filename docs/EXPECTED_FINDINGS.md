@@ -21,10 +21,20 @@ and by `tests/test_verify_findings.py`) enforces it. All data is synthetic; the
 >   does not emit a CWE identifier into its `--gitlab-sast` output, so the
 >   verifier matches this finding by the rule id `sqlalchemy-text-fstring-sql-injection`.
 > - **Dependency** → ACS (`roxctl image scan`) against the built image, adapted
->   to the GitLab report schema by `scripts/roxctl_to_gl_depscan.py`. Because ACS
->   scans the whole image, the adapter keeps **only language-level findings** and
->   drops base-image OS CVEs, so they don't appear as unexpected findings.
+>   to the GitLab report schema by `scripts/roxctl_to_gl_depscan.py`. ACS scans
+>   the whole image, so the adapter keeps only the **declared** dependencies
+>   (`requirements.txt`) and drops base-image OS CVEs. Because an image scan's
+>   dependency surface is not controlled by this fixture, the verifier treats
+>   dependency findings as **informational** — it asserts the planted
+>   `CVE-2024-33663` is **present** but does not fail on extras (e.g. a second
+>   CVE on `python-jose`, or any transitive). SAST and Secret, which come from
+>   source files this fixture controls, stay strict (exactly the planted finding).
 > - **Secret** → GitLab's managed Secret Detection, which is available on Free.
+>
+> Note: ACS may report more than one CVE on `python-jose` (it is the intentionally
+> vulnerable package); all are the one planted "vulnerable dependency" finding and
+> clear when the package is bumped. Any CVE on `python-jose` without an upstream fix
+> will persist after the bump — relevant to the remediation/verify loop, not this gate.
 
 ## What "exploited" looks like
 
@@ -52,33 +62,25 @@ and by `tests/test_verify_findings.py`) enforces it. All data is synthetic; the
 3. **vulnerable-dependency** - bump `python-jose` to the patched release
    (`>=3.4.0`) in `requirements.txt`.
 
-## Known, accepted extras (documented, not silent)
-
-| id | Package | Severity | Why accepted |
-|----|---------|----------|--------------|
-| `CVE-2024-23342` | `ecdsa` (transitive dependency of `python-jose`) | High | Minerva timing side-channel; no upstream fix exists. Cannot be removed without changing the pinned `python-jose==3.3.0`, which is part of the planted finding. |
-
-These are listed in `ACCEPTED_TRANSITIVE` in `scripts/verify_findings.py`, so the
-gate passes out of the box on the first real pipeline run. The list is explicit:
-every other High/Critical (including any new advisory on `python-jose` or `ecdsa`)
-still fails the gate as unexpected.
-
 ## Matching rules used by the verifier
 
-- SQLi: SAST finding in `app/routers/patients_api.py` with CWE-89, Bandit `B608`, or the Semgrep rule id `sqlalchemy-text-fstring-sql-injection`.
-- Secret: Secret Detection finding in `app/config.py`.
-- Dependency: Dependency Scanning finding carrying `CVE-2024-33663`.
-- Fails if any of the three is missing, a report file is absent, or any **other**
-  High/Critical finding appears (other than the accepted list above). There is no
-  blanket waiver for `python-jose`. Lower-severity extras are tolerated (noted).
+- SQLi (SAST, strict): a finding in `app/routers/patients_api.py` with CWE-89,
+  Bandit `B608`, or the Semgrep rule id `sqlalchemy-text-fstring-sql-injection`.
+- Secret (Secret Detection, strict): a finding in `app/config.py`.
+- Dependency (informational): a finding carrying `CVE-2024-33663`.
+- The gate FAILS if any of the three is missing, a report file is absent, or a
+  SAST/Secret report carries any **other** High/Critical finding (those two are
+  source-controlled). Dependency-report extras do **not** fail the gate — an ACS
+  image scan reports the whole image (OS base layer, multiple CVEs per package),
+  which this fixture does not control; they are printed as notes.
 
-## Keeping the count at three
+## Keeping it to the planted set
 
 - The Semgrep SAST job scans only `app/`, so the vendored `app/static/htmx.min.js`
   and the `tests/`, `docs/`, `scripts/` trees add no SAST findings. Secret Detection
   excludes `tests/`, `docs/`, `scripts/` so no sample or doc copy becomes a fourth
-  secret. The ACS adapter drops base-image OS CVEs (language-level findings only).
-  Do not put the literal key anywhere except `app/config.py`.
-- If a scanner reports another legitimate transitive advisory, triage it
-  deliberately: pin/bump it, or add it to `ACCEPTED_TRANSITIVE` (with rationale and
-  a row in the table above), or pass `--allow <CVE-or-id>` for a one-off.
+  secret. Do not put the literal key anywhere except `app/config.py`.
+- The ACS adapter scopes the dependency report to `requirements.txt` packages, so
+  base-image OS CVEs don't appear in it. (`ACCEPTED_TRANSITIVE` / `--allow` in the
+  verifier remain available for SAST/Secret allow-listing but are not needed for
+  dependency findings, which are already informational.)

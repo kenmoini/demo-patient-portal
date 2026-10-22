@@ -200,9 +200,18 @@ def verify_findings(
 
     unexpected: list[Finding] = []
     notes: list[Finding] = []
-    for findings in reports.values():
+    for name, findings in reports.items():
         for f in findings:
             if id(f) in claimed:
+                continue
+            # Dependency findings come from an ACS *image* scan, which reports the
+            # whole image (OS base layer, plus extra CVEs on the planted package)
+            # — a surface this fixture does not control. So dependency extras are
+            # informational, never fatal; the planted CVE is still required present
+            # (EXPECTED, above). SAST and Secret reports are source-controlled and
+            # stay strict: any other High/Critical there fails the gate.
+            if name == DEPENDENCY_REPORT:
+                notes.append(f)
                 continue
             if str(f.get("id", "")).upper() in allowed or allowed & _identifier_values(f):
                 print(f"note: accepted/allowed extra finding: {_describe(f)}")

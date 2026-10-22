@@ -60,7 +60,9 @@ dependency_scanning:
   script:
     - python scripts/download_roxctl.py ./roxctl
     - ./roxctl image scan --endpoint "$ROX_ENDPOINT" --image "$SCAN_IMAGE" --output json > roxctl-scan.json
-    - python scripts/roxctl_to_gl_depscan.py roxctl-scan.json gl-dependency-scanning-report.json
+    # Scope the report to app-declared deps (requirements.txt): an image scan also
+    # reports the whole base image's OS CVEs, which are not part of the planted set.
+    - python scripts/roxctl_to_gl_depscan.py roxctl-scan.json gl-dependency-scanning-report.json --requirements requirements.txt
   artifacts:
     when: always
     paths:
