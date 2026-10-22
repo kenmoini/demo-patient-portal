@@ -111,3 +111,13 @@ def test_static_assets_served(portal):
     assert anon.get("/static/app.css").status_code == 200
     assert anon.get("/static/htmx.min.js").status_code == 200
     assert anon.get("/signin").status_code == 200
+
+
+def test_static_urls_honor_forwarded_proto(portal):
+    """Behind a TLS-terminating router the pod sees http; asset URLs must still be https."""
+    _, authed, _, _ = portal
+    r = authed.get("/", headers={"X-Forwarded-Proto": "https"})
+    assert r.status_code == 200
+    assert 'href="https://testserver/static/app.css"' in r.text
+    assert 'src="https://testserver/static/htmx.min.js"' in r.text
+    assert "http://testserver/static/" not in r.text

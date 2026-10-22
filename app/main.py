@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.auth import router as auth_router
 from app.config import get_settings
@@ -31,6 +32,12 @@ def create_app() -> FastAPI:
         same_site="lax",
         https_only=get_settings().APP_BASE_URL.startswith("https://"),
     )
+    # Added last so it is the outermost middleware. The app runs behind a TLS-terminating
+    # router (OpenShift Route, edge termination) and only sees plain HTTP. Trust
+    # X-Forwarded-Proto/For so request.url, url_for() and the absolute asset URLs in templates
+    # reflect the scheme the browser actually used. Only the in-cluster router can reach the
+    # pod, so trusting every upstream is acceptable for this demo fixture.
+    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
     app.include_router(auth_router)
     app.include_router(patients_api_router)
     app.include_router(portal_router)
