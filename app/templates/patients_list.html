@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Patients{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Patients</h1>
+    <p class="muted">Search the registry by patient name.</p>
+  </div>
+</div>
+
+<div class="card">
+  <div class="searchbar">
+    <label class="sr-only" for="q">Search patients</label>
+    <input id="q" name="q" type="search" placeholder="Search by name, e.g. Smith" autocomplete="off"
+           hx-get="/search"
+           hx-trigger="input changed delay:300ms, search"
+           hx-target="#results"
+           hx-indicator="#spinner">
+    <span id="spinner" class="htmx-indicator muted">Searching…</span>
+  </div>
+  <div id="results" class="results">
+    {% include "_search_results.html" %}
+  </div>
+</div>
+{% endblock %}

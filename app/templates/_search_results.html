@@ -1,0 +1,30 @@
+{% if error %}
+<p class="empty">The search could not be completed. Please try a different term.</p>
+{% elif not patients %}
+<p class="empty">No patients match{% if q %} “{{ q }}”{% endif %}.</p>
+{% else %}
+<table class="table">
+  <thead>
+    <tr>
+      <th>MRN</th>
+      <th>Name</th>
+      <th>DOB</th>
+      <th>Sex</th>
+      <th>Primary condition</th>
+      <th>Attending</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in patients %}
+    <tr class="patient-row">
+      <td class="mono">{{ p.mrn }}</td>
+      <td><a href="/patients/{{ p.id }}">{{ p.full_name }}</a></td>
+      <td>{{ p.dob }}</td>
+      <td>{{ p.sex }}</td>
+      <td>{{ p.primary_condition }}</td>
+      <td>{{ p.attending_provider }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}

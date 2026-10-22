@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ p.full_name }}{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="/">&larr; All patients</a></p>
+
+<section class="banner card">
+  <div class="banner-id">
+    <h1>{{ p.full_name }}</h1>
+    <p class="muted"><span class="mono">{{ p.mrn }}</span> · {{ p.sex }} · DOB {{ p.dob }}</p>
+  </div>
+  <span class="pill">Patient / {{ p.id }}</span>
+</section>
+
+<div class="grid">
+  <section class="card">
+    <h2>Demographics</h2>
+    <dl class="fields">
+      <dt>Patient.identifier</dt><dd class="mono">{{ p.mrn }}</dd>
+      <dt>Patient.name</dt><dd>{{ p.full_name }}</dd>
+      <dt>Patient.gender</dt><dd>{{ p.sex }}</dd>
+      <dt>Patient.birthDate</dt><dd>{{ p.dob }}</dd>
+    </dl>
+  </section>
+
+  <section class="card">
+    <h2>Care team</h2>
+    <dl class="fields">
+      <dt>Patient.generalPractitioner</dt><dd>{{ p.attending_provider }}</dd>
+      <dt>Condition.code</dt><dd>{{ p.primary_condition }}</dd>
+    </dl>
+  </section>
+</div>
+
+<section class="card">
+  <h2>FHIR resource</h2>
+  <pre class="fhir">{{ fhir | tojson(indent=2) }}</pre>
+</section>
+{% endblock %}

@@ -45,16 +45,15 @@ def list_patients(
     return [_row_to_dict(r) for r in rows]
 
 
-@router.get("/search")
-def search_patients(
-    q: str,
-    session: Session = Depends(get_session),
-    claims: dict = Depends(require_bearer),
-) -> list[dict]:
+def run_vulnerable_search(session: Session, q: str) -> list[dict]:
     """VULNERABLE: builds SQL via raw f-string interpolation of `q` (no bound
     parameter). This is a deliberate SQL injection — see EXPECTED_FINDINGS #1.
     Do NOT parameterize, sanitize, or suppress this; it is the intended
     "hero" finding for this fixture.
+
+    This is the ONE SQL-injection sink in the app: both the API endpoint below
+    and the portal UI's `/search` partial call this function. Do not add a
+    second raw-SQL query anywhere.
     """
     query = text(  # planted vuln #1 (see docs/EXPECTED_FINDINGS.md) — intentional SQL injection, do not remove or suppress
         f"SELECT id, mrn, full_name, dob, sex, primary_condition, attending_provider "
@@ -73,3 +72,13 @@ def search_patients(
         }
         for r in rows
     ]
+
+
+@router.get("/search")
+def search_patients(
+    q: str,
+    session: Session = Depends(get_session),
+    claims: dict = Depends(require_bearer),
+) -> list[dict]:
+    """Search endpoint; delegates to the single vulnerable search function."""
+    return run_vulnerable_search(session, q)

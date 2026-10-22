@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Patients{% endblock %} · Cedar Valley Health</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='app.css') }}">
+  <script src="{{ url_for('static', path='htmx.min.js') }}" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="brand-mark" aria-hidden="true">+</span>
+      <span class="brand-name">Cedar Valley Health</span>
+      <span class="brand-sub">Clinician Portal</span>
+    </a>
+    {% if user %}
+    <div class="whoami">
+      <span class="avatar" aria-hidden="true">{{ (user.preferred_username or user.sub or '?')[:1] | upper }}</span>
+      <span>{{ user.preferred_username or user.sub }}</span>
+    </div>
+    {% endif %}
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="footer">Synthetic demo data only. No real patient information.</footer>
+</body>
+</html>

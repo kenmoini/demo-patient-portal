@@ -1,0 +1,101 @@
+:root {
+  --bg: #f4f7f9;
+  --surface: #ffffff;
+  --ink: #1b2a35;
+  --muted: #62727f;
+  --line: #dde5ea;
+  --brand: #0f766e;
+  --brand-ink: #ffffff;
+  --brand-soft: #e3f4f1;
+  --radius: 10px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+a { color: var(--brand); text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1 { font-size: 1.6rem; margin: 0 0 .15rem; }
+h2 { font-size: 1rem; margin: 0 0 .75rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.muted { color: var(--muted); margin: 0; }
+.mono { font-family: var(--mono); font-size: .9em; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .75rem 1.5rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  border-top: 4px solid var(--brand);
+}
+.brand { display: flex; align-items: baseline; gap: .6rem; color: var(--ink); }
+.brand:hover { text-decoration: none; }
+.brand-mark {
+  display: inline-grid; place-items: center; width: 1.6rem; height: 1.6rem;
+  background: var(--brand); color: var(--brand-ink); border-radius: 6px;
+  font-weight: 700; align-self: center;
+}
+.brand-name { font-weight: 700; font-size: 1.1rem; }
+.brand-sub { color: var(--muted); font-size: .85rem; }
+.whoami { display: flex; align-items: center; gap: .5rem; color: var(--muted); }
+.avatar {
+  display: inline-grid; place-items: center; width: 1.9rem; height: 1.9rem;
+  background: var(--brand-soft); color: var(--brand); border-radius: 50%; font-weight: 700;
+}
+
+.container { max-width: 1080px; margin: 1.5rem auto; padding: 0 1.5rem; }
+.footer { text-align: center; color: var(--muted); font-size: .8rem; padding: 1.5rem; }
+
+.page-head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 1rem; }
+.card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 1.1rem 1.25rem; margin-bottom: 1rem;
+  box-shadow: 0 1px 2px rgba(20, 40, 55, .04);
+}
+
+.searchbar { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; }
+.searchbar input {
+  flex: 1; padding: .6rem .8rem; font: inherit;
+  border: 1px solid var(--line); border-radius: 8px; background: #fbfdfe;
+}
+.searchbar input:focus { outline: 2px solid var(--brand); outline-offset: 0; border-color: var(--brand); }
+.htmx-indicator { opacity: 0; transition: opacity .15s; font-size: .85rem; }
+.htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }
+
+.table { width: 100%; border-collapse: collapse; }
+.table th {
+  text-align: left; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--muted); padding: .5rem .6rem; border-bottom: 2px solid var(--line);
+}
+.table td { padding: .6rem; border-bottom: 1px solid var(--line); }
+.table tbody tr:hover { background: var(--brand-soft); }
+.results { overflow-x: auto; }
+.empty { color: var(--muted); padding: 1.5rem .5rem; text-align: center; margin: 0; }
+
+.crumbs { margin: 0 0 .75rem; }
+.banner { display: flex; justify-content: space-between; align-items: center; border-left: 5px solid var(--brand); }
+.pill {
+  background: var(--brand-soft); color: var(--brand); font-family: var(--mono);
+  font-size: .8rem; padding: .25rem .6rem; border-radius: 999px;
+}
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+.fields { display: grid; grid-template-columns: max-content 1fr; gap: .45rem 1.25rem; margin: 0; }
+.fields dt { color: var(--muted); font-family: var(--mono); font-size: .8rem; padding-top: .1rem; }
+.fields dd { margin: 0; font-weight: 500; }
+.fhir {
+  margin: 0; padding: 1rem; overflow-x: auto; background: #0f1f2a; color: #d6e7ef;
+  border-radius: 8px; font: .82rem/1.5 var(--mono);
+}
+
+.btn { display: inline-block; padding: .6rem 1.1rem; border-radius: 8px; font-weight: 600; }
+.btn-primary { background: var(--brand); color: var(--brand-ink); }
+.btn-primary:hover { text-decoration: none; filter: brightness(1.08); }
+.signin { max-width: 440px; margin: 4rem auto; text-align: center; }
+.signin p { margin: .5rem 0 1.5rem; }
