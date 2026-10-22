@@ -29,7 +29,11 @@ and by `tests/test_verify_findings.py`) enforces it. All data is synthetic; the
 >   `CVE-2024-33663` is **present** but does not fail on extras (e.g. a second
 >   CVE on `python-jose`, or any transitive). SAST and Secret, which come from
 >   source files this fixture controls, stay strict (exactly the planted finding).
-> - **Secret** → GitLab's managed Secret Detection, which is available on Free.
+> - **Secret** → GitLab's managed Secret Detection (available on Free). It scans a
+>   commit range by default, so it finds a pre-existing committed key only on the
+>   first push; `SECRET_DETECTION_HISTORIC_SCAN: "true"` makes it scan all history
+>   every run. `deploy/` is excluded so the historic scan doesn't re-surface the
+>   placeholdered example `SESSION_SECRET` from git history as a spurious finding.
 >
 > Note: ACS may report more than one CVE on `python-jose` (it is the intentionally
 > vulnerable package); all are the one planted "vulnerable dependency" finding and

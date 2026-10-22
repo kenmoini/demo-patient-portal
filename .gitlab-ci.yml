@@ -22,8 +22,16 @@ include:
   - template: Security/Secret-Detection.gitlab-ci.yml
 
 variables:
-  # Sample fixtures/docs must never add a 2nd secret finding.
-  SECRET_DETECTION_EXCLUDED_PATHS: "tests, docs, scripts"
+  # Pipeline Secret Detection scans a COMMIT RANGE, not the working tree: on the
+  # default branch it scans CI_COMMIT_BEFORE_SHA..CI_COMMIT_SHA. So it finds the
+  # planted key only on the first push (which scans the whole tree) and misses it
+  # on later pushes that don't touch app/config.py. Historic scan reads every
+  # commit, so the committed key is always found.
+  SECRET_DETECTION_HISTORIC_SCAN: "true"
+  # Exclude deploy/ as well as tests/docs/scripts: a historic scan would otherwise
+  # re-surface the placeholdered example SESSION_SECRET from git history (it was a
+  # real-looking hex before it was replaced) as a spurious 2nd secret finding.
+  SECRET_DETECTION_EXCLUDED_PATHS: "tests, docs, scripts, deploy"
   # Image that ACS scans for the dependency finding (built+pushed by GitHub Actions).
   SCAN_IMAGE: "ghcr.io/kenmoini/demo-patient-portal:latest"
   # ACS: set ROX_ENDPOINT and ROX_API_TOKEN as CI/CD variables (masked).
