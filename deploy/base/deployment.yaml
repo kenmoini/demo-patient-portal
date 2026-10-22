@@ -26,9 +26,9 @@ spec:
           ports:
             - name: http
               containerPort: 8000
-          envFrom:
-            - configMapRef:
-                name: patient-portal-config
+          # envFrom:
+          #   - configMapRef:
+          #       name: patient-portal-config
           env:
             - name: POD_NAME
               valueFrom: { fieldRef: { fieldPath: metadata.name } }
