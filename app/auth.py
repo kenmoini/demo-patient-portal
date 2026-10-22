@@ -140,6 +140,17 @@ def callback(
         )
         raise HTTPException(status_code=401, detail="authentication failed") from exc
     request.session[SESSION_CLAIMS_KEY] = claims
+    return RedirectResponse("/patients", status_code=303)
+
+
+@router.post("/logout")
+def logout(request: Request) -> RedirectResponse:
+    """Local sign-out: drop the app session (claims and any pending login state) and go home.
+
+    POST-only so a stray link or prefetch cannot log someone out. The Keycloak SSO session is
+    deliberately left alone; signing in again may not prompt for credentials while it lasts.
+    """
+    request.session.clear()
     return RedirectResponse("/", status_code=303)
 
 

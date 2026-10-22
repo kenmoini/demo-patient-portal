@@ -1,6 +1,6 @@
 """Portal UI: server-rendered Jinja2 pages with an HTMX live-search partial.
 
-Every portal route (except the public sign-in landing page) sits behind
+Every portal route (except the public landing page at `/`) sits behind
 `require_session`. The patient list and detail pages use safe ORM queries. The
 live search deliberately reuses the one vulnerable search function from
 `patients_api` (the "hero" SQLi) — there is no second raw-SQL query here.
@@ -9,13 +9,13 @@ live search deliberately reuses the one vulnerable search function from
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.auth import require_session
+from app.auth import SESSION_CLAIMS_KEY, require_session
 from app.db import get_session
 from app.models import Patient
 from app.routers.patients_api import run_vulnerable_search
@@ -42,14 +42,21 @@ def _fhir_patient(p: Patient) -> dict:
     }
 
 
-@router.get("/signin", response_class=HTMLResponse, include_in_schema=False)
-def signin(request: Request):
-    """Public landing page with a single 'Sign in' button (starts the OIDC flow)."""
-    return templates.TemplateResponse(request, "login.html", {"user": None})
-
-
 @router.get("/", response_class=HTMLResponse)
-def home(
+def landing(request: Request):
+    """Public landing page: 'Sign in' for visitors, 'Open patient records' once signed in."""
+    user = request.session.get(SESSION_CLAIMS_KEY)
+    return templates.TemplateResponse(request, "landing.html", {"user": user})
+
+
+@router.get("/signin", include_in_schema=False)
+def signin() -> RedirectResponse:
+    """Former sign-in page; the landing page at / now serves that purpose."""
+    return RedirectResponse("/", status_code=307)
+
+
+@router.get("/patients", response_class=HTMLResponse)
+def patients_list(
     request: Request,
     session: Session = Depends(get_session),
     claims: dict = Depends(require_session),

@@ -49,16 +49,16 @@ def portal(oidc_env):
     return anon, authed, first, smiths
 
 
-def test_home_redirects_unauth(portal):
+def test_patients_redirects_unauth(portal):
     anon, _, _, _ = portal
-    r = anon.get("/")
+    r = anon.get("/patients")
     assert r.status_code == 307
     assert "/protocol/openid-connect/auth" in r.headers["location"]
 
 
-def test_home_lists_patients(portal):
+def test_patients_lists_patients(portal):
     _, authed, first, _ = portal
-    r = authed.get("/")
+    r = authed.get("/patients")
     assert r.status_code == 200
     assert "text/html" in r.headers["content-type"]
     assert first.full_name in r.text
@@ -87,7 +87,7 @@ def test_patient_detail(portal):
 
 def test_portal_routes_require_session(portal):
     anon, _, first, _ = portal
-    for path in ("/search?q=Smith", f"/patients/{first.id}"):
+    for path in ("/patients", "/search?q=Smith", f"/patients/{first.id}"):
         assert anon.get(path).status_code == 307
 
 
@@ -110,14 +110,60 @@ def test_static_assets_served(portal):
     anon, _, _, _ = portal
     assert anon.get("/static/app.css").status_code == 200
     assert anon.get("/static/htmx.min.js").status_code == 200
-    assert anon.get("/signin").status_code == 200
 
 
 def test_static_urls_honor_forwarded_proto(portal):
     """Behind a TLS-terminating router the pod sees http; asset URLs must still be https."""
     _, authed, _, _ = portal
-    r = authed.get("/", headers={"X-Forwarded-Proto": "https"})
+    r = authed.get("/patients", headers={"X-Forwarded-Proto": "https"})
     assert r.status_code == 200
     assert 'href="https://testserver/static/app.css"' in r.text
     assert 'src="https://testserver/static/htmx.min.js"' in r.text
     assert "http://testserver/static/" not in r.text
+
+
+# --- public landing page at / -----------------------------------------------
+
+def test_landing_is_public_and_links_to_login(portal):
+    anon, _, _, _ = portal
+    r = anon.get("/")
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert 'href="/auth/login"' in r.text
+    assert "Sign in" in r.text
+    assert "whoami" not in r.text  # no user menu when signed out
+    assert "patient-row" not in r.text  # no patient data on a public page
+
+
+def test_landing_for_signed_in_user_offers_patient_records(portal):
+    _, authed, _, _ = portal
+    r = authed.get("/")
+    assert r.status_code == 200
+    assert 'href="/patients"' in r.text
+    assert "Open patient records" in r.text
+    assert 'href="/auth/login"' not in r.text
+
+
+def test_signin_redirects_to_landing(portal):
+    anon, _, _, _ = portal
+    r = anon.get("/signin")
+    assert r.status_code in (301, 307, 308)
+    assert r.headers["location"] == "/"
+
+
+def test_patient_detail_breadcrumb_points_at_list(portal):
+    _, authed, first, _ = portal
+    assert 'href="/patients"' in authed.get(f"/patients/{first.id}").text
+
+
+# --- user menu with Sign out -------------------------------------------------
+
+def test_user_menu_has_sign_out_form(portal):
+    _, authed, _, _ = portal
+    for path in ("/", "/patients"):
+        html = authed.get(path).text
+        assert '<details class="whoami">' in html
+        assert "dr.test" in html
+        assert '<form method="post" action="/auth/logout"' in html
+        assert "Sign out" in html
+        assert "<script" not in html.split("</head>")[1]  # dropdown is CSS-only, no inline JS

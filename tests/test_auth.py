@@ -168,7 +168,7 @@ def test_callback_happy_path_with_at_hash(oidc_env, make_token, monkeypatch):
 
     r = c.get("/auth/callback", params={"code": "abc", "state": state})
     assert r.status_code == 303
-    assert r.headers["location"] == "/"
+    assert r.headers["location"] == "/patients"
     url, data = calls[0]
     assert url == f"{TEST_ISSUER}/protocol/openid-connect/token"
     assert data["code"] == "abc" and data["client_secret"] == "test-client-secret"
@@ -312,3 +312,63 @@ def test_callback_logs_token_validation_failure_cause(oidc_env, make_token, monk
     assert r.status_code == 401
     msgs = [rec.getMessage() for rec in caplog.records]
     assert any("token validation" in m and "JWTClaimsError" in m and "at_hash" in m for m in msgs), msgs
+
+
+# --- /auth/logout (local sign-out only; Keycloak SSO session is left alone) ---
+
+def _signed_in_client():
+    from fastapi import Request
+
+    from app.auth import require_session
+    from app.main import create_app
+
+    app = create_app()
+
+    @app.get("/_seed")
+    def seed(request: Request):
+        request.session["claims"] = {"sub": "user-123", "preferred_username": "dr.test"}
+        return {"ok": True}
+
+    @app.get("/_protected")
+    def protected(claims: dict = Depends(require_session)):
+        return claims
+
+    c = TestClient(app, follow_redirects=False)
+    c.get("/_seed")
+    return c
+
+
+def test_logout_clears_session_and_lands_on_root(oidc_env):
+    c = _signed_in_client()
+    assert c.get("/_protected").status_code == 200
+    r = c.post("/auth/logout")
+    assert r.status_code == 303
+    assert r.headers["location"] == "/"
+    assert c.get("/_protected").status_code == 307  # back to needing Keycloak
+
+
+def test_logout_does_not_contact_keycloak(oidc_env, monkeypatch):
+    from app import auth
+
+    def boom(*a, **kw):
+        raise AssertionError("logout must not call Keycloak")
+
+    monkeypatch.setattr(auth.httpx, "get", boom)
+    monkeypatch.setattr(auth.httpx, "post", boom)
+    assert _signed_in_client().post("/auth/logout").status_code == 303
+
+
+def test_logout_requires_post(oidc_env):
+    c = _signed_in_client()
+    assert c.get("/auth/logout").status_code == 405
+    assert c.get("/_protected").status_code == 200  # a GET did not log anyone out
+
+
+def test_logout_discards_pending_login_state(oidc_env, make_token, monkeypatch):
+    calls = _stub_token_endpoint(monkeypatch, make_token())
+    c = _client()
+    state = _login_state(c)
+    c.post("/auth/logout")
+    r = c.get("/auth/callback", params={"code": "abc", "state": state})
+    assert r.status_code == 400
+    assert calls == []

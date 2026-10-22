@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Welcome{% endblock %}
+{% block content %}
+<section class="landing card">
+  <p class="eyebrow">Cedar Valley Health</p>
+  <h1>Clinician Portal</h1>
+  <p class="muted">Look up patients in the registry, review demographics and care team details, and view each record as a FHIR resource.</p>
+  {% if user %}
+  <a class="btn btn-primary" href="/patients">Open patient records</a>
+  <p class="muted small">Signed in as {{ user.preferred_username or user.sub }}.</p>
+  {% else %}
+  <a class="btn btn-primary" href="/auth/login">Sign in</a>
+  <p class="muted small">Access to patient records requires authentication with your organization account.</p>
+  {% endif %}
+</section>
+{% endblock %}

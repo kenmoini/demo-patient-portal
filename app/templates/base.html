@@ -15,10 +15,18 @@
       <span class="brand-sub">Clinician Portal</span>
     </a>
     {% if user %}
-    <div class="whoami">
-      <span class="avatar" aria-hidden="true">{{ (user.preferred_username or user.sub or '?')[:1] | upper }}</span>
-      <span>{{ user.preferred_username or user.sub }}</span>
-    </div>
+    <details class="whoami">
+      <summary aria-label="Account menu">
+        <span class="avatar" aria-hidden="true">{{ (user.preferred_username or user.sub or '?')[:1] | upper }}</span>
+        <span>{{ user.preferred_username or user.sub }}</span>
+        <span class="caret" aria-hidden="true">&#9662;</span>
+      </summary>
+      <div class="menu" role="menu">
+        <form method="post" action="/auth/logout">
+          <button type="submit" class="menu-item" role="menuitem">Sign out</button>
+        </form>
+      </div>
+    </details>
     {% endif %}
   </header>
   <main class="container">

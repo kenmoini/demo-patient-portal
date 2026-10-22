@@ -44,11 +44,31 @@ h2 { font-size: 1rem; margin: 0 0 .75rem; text-transform: uppercase; letter-spac
 }
 .brand-name { font-weight: 700; font-size: 1.1rem; }
 .brand-sub { color: var(--muted); font-size: .85rem; }
-.whoami { display: flex; align-items: center; gap: .5rem; color: var(--muted); }
+.whoami { position: relative; color: var(--muted); }
+.whoami > summary {
+  display: flex; align-items: center; gap: .5rem; list-style: none; cursor: pointer;
+  padding: .25rem .5rem; border-radius: 8px;
+}
+.whoami > summary::-webkit-details-marker { display: none; }
+.whoami > summary:hover, .whoami[open] > summary { background: var(--brand-soft); color: var(--ink); }
+.whoami > summary:focus-visible { outline: 2px solid var(--brand); outline-offset: 0; }
+.caret { font-size: .7rem; }
+.whoami[open] .caret { transform: rotate(180deg); }
 .avatar {
   display: inline-grid; place-items: center; width: 1.9rem; height: 1.9rem;
   background: var(--brand-soft); color: var(--brand); border-radius: 50%; font-weight: 700;
 }
+.menu {
+  position: absolute; right: 0; top: calc(100% + .35rem); min-width: 10rem; z-index: 10;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(20, 40, 55, .12); padding: .3rem;
+}
+.menu form { margin: 0; }
+.menu-item {
+  display: block; width: 100%; text-align: left; padding: .5rem .7rem; border: 0; border-radius: 6px;
+  background: none; color: var(--ink); font: inherit; cursor: pointer;
+}
+.menu-item:hover, .menu-item:focus-visible { background: var(--brand-soft); color: var(--brand); outline: none; }
 
 .container { max-width: 1080px; margin: 1.5rem auto; padding: 0 1.5rem; }
 .footer { text-align: center; color: var(--muted); font-size: .8rem; padding: 1.5rem; }
@@ -97,5 +117,11 @@ h2 { font-size: 1rem; margin: 0 0 .75rem; text-transform: uppercase; letter-spac
 .btn { display: inline-block; padding: .6rem 1.1rem; border-radius: 8px; font-weight: 600; }
 .btn-primary { background: var(--brand); color: var(--brand-ink); }
 .btn-primary:hover { text-decoration: none; filter: brightness(1.08); }
-.signin { max-width: 440px; margin: 4rem auto; text-align: center; }
-.signin p { margin: .5rem 0 1.5rem; }
+.landing { max-width: 520px; margin: 4rem auto; text-align: center; padding: 2.25rem 2rem; }
+.landing h1 { font-size: 2rem; margin-bottom: .5rem; }
+.landing .muted { margin: 0 0 1.5rem; }
+.landing .small { font-size: .85rem; margin: 1rem 0 0; }
+.eyebrow {
+  margin: 0 0 .25rem; color: var(--brand); font-size: .8rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .08em;
+}
