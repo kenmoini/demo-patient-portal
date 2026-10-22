@@ -1,5 +1,7 @@
 """Keycloak OIDC authentication: login/callback routes, token validation, auth dependencies."""
 
+import base64
+import hashlib
 import secrets
 from urllib.parse import urlencode
 
@@ -14,6 +16,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 SESSION_CLAIMS_KEY = "claims"
 SESSION_STATE_KEY = "oidc_state"
+SESSION_VERIFIER_KEY = "oidc_code_verifier"
 
 
 def fetch_jwks() -> dict:
@@ -50,7 +53,18 @@ def validate_token(token: str, access_token: str | None = None) -> dict:
     )
 
 
-def _authorize_redirect(settings: Settings, state: str) -> str:
+def _pkce_challenge(verifier: str) -> str:
+    """RFC 7636 S256: base64url(sha256(verifier)) without padding."""
+    digest = hashlib.sha256(verifier.encode("ascii")).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+
+def _begin_authorization(request: Request, settings: Settings) -> str:
+    """Create fresh state + PKCE verifier, stash them in the session, return the authorize URL."""
+    state = secrets.token_urlsafe(24)
+    verifier = secrets.token_urlsafe(64)  # 86 chars, within RFC 7636's 43..128
+    request.session[SESSION_STATE_KEY] = state
+    request.session[SESSION_VERIFIER_KEY] = verifier
     query = urlencode(
         {
             "client_id": settings.KEYCLOAK_CLIENT_ID,
@@ -58,6 +72,8 @@ def _authorize_redirect(settings: Settings, state: str) -> str:
             "scope": "openid profile email",
             "redirect_uri": settings.redirect_uri,
             "state": state,
+            "code_challenge": _pkce_challenge(verifier),
+            "code_challenge_method": "S256",
         }
     )
     return f"{settings.authorize_url}?{query}"
@@ -66,17 +82,30 @@ def _authorize_redirect(settings: Settings, state: str) -> str:
 @router.get("/login")
 def login(request: Request) -> RedirectResponse:
     """Redirect the browser to the Keycloak authorize endpoint."""
-    state = secrets.token_urlsafe(24)
-    request.session[SESSION_STATE_KEY] = state
-    return RedirectResponse(_authorize_redirect(get_settings(), state), status_code=307)
+    return RedirectResponse(_begin_authorization(request, get_settings()), status_code=307)
 
 
 @router.get("/callback")
-def callback(request: Request, code: str, state: str | None = None) -> RedirectResponse:
+def callback(
+    request: Request,
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+    error_description: str | None = None,
+) -> RedirectResponse:
     """Exchange the authorization code for tokens, validate, and start a session."""
     expected = request.session.pop(SESSION_STATE_KEY, None)
+    verifier = request.session.pop(SESSION_VERIFIER_KEY, None)
     if not expected or not state or not secrets.compare_digest(expected, state):
         raise HTTPException(status_code=400, detail="invalid state")
+    if error:
+        # The IdP declined the authorize request (bad client config, user cancelled, ...).
+        detail = f"authentication failed: {error}"
+        if error_description:
+            detail += f": {error_description}"
+        raise HTTPException(status_code=401, detail=detail)
+    if not code or not verifier:
+        raise HTTPException(status_code=400, detail="missing authorization code")
     settings = get_settings()
     try:
         resp = httpx.post(
@@ -87,6 +116,7 @@ def callback(request: Request, code: str, state: str | None = None) -> RedirectR
                 "redirect_uri": settings.redirect_uri,
                 "client_id": settings.KEYCLOAK_CLIENT_ID,
                 "client_secret": settings.KEYCLOAK_CLIENT_SECRET,
+                "code_verifier": verifier,
             },
             timeout=10.0,
         )
@@ -104,12 +134,10 @@ def require_session(request: Request) -> dict:
     claims = request.session.get(SESSION_CLAIMS_KEY)
     if claims:
         return claims
-    state = secrets.token_urlsafe(24)
-    request.session[SESSION_STATE_KEY] = state
     raise HTTPException(
         status_code=307,
         detail="authentication required",
-        headers={"Location": _authorize_redirect(get_settings(), state)},
+        headers={"Location": _begin_authorization(request, get_settings())},
     )
 
 
