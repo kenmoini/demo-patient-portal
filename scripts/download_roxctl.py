@@ -25,6 +25,7 @@ def main(argv: list[str]) -> int:
     out = argv[1] if len(argv) > 1 else "./roxctl"
     endpoint = os.environ.get("ROX_ENDPOINT", "").strip()
     token = os.environ.get("ROX_API_TOKEN", "").strip()
+    cafile = os.environ.get("SSL_CERT_FILE", "/etc/ssl/certs/ca-certificates.crt").strip()
     if not endpoint or not token:
         print("ERROR: ROX_ENDPOINT and ROX_API_TOKEN must be set", file=sys.stderr)
         return 2
@@ -32,7 +33,7 @@ def main(argv: list[str]) -> int:
     host = endpoint if "://" in endpoint else f"https://{endpoint}"
     url = f"{host}/api/cli/download/roxctl-linux-amd64"
 
-    ctx = ssl.create_default_context()
+    ctx = ssl.create_default_context(cafile=cafile)
     if os.environ.get("ROX_INSECURE_CLIENT_SKIP_TLS_VERIFY", "").lower() == "true":
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
