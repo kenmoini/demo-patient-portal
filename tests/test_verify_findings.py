@@ -68,6 +68,31 @@ def test_missing_dependency_fails(tmp_path):
         verify_findings(d)
 
 
+def _set_semgrep_oss_sqli(vulns):
+    """Replace the SAST SQLi entry with the real Semgrep-OSS --gitlab-sast shape:
+    identified by the rule id (namespaced), with NO CWE/B608 identifier."""
+    vulns.clear()
+    vulns.append({
+        "id": "semgrep-oss-0001",
+        "category": "sast",
+        "name": "SQL injection via f-string in sqlalchemy text()",
+        "severity": "High",
+        "location": {"file": "app/routers/patients_api.py", "start_line": 58},
+        "identifiers": [{
+            "type": "semgrep_type",
+            "name": "Semgrep - ci.semgrep.sqli.sqlalchemy-text-fstring-sql-injection",
+            "value": "ci.semgrep.sqli.sqlalchemy-text-fstring-sql-injection",
+        }],
+    })
+
+
+def test_semgrep_oss_rule_id_satisfies_sqli(tmp_path):
+    # The production SAST report (Semgrep OSS) matches by rule id, not CWE.
+    d = _copy_good(tmp_path)
+    _mutate(d, SAST, _set_semgrep_oss_sqli)
+    assert verify_findings(d) is None
+
+
 def test_missing_report_file_fails(tmp_path):
     d = _copy_good(tmp_path)
     (d / SECRET).unlink()

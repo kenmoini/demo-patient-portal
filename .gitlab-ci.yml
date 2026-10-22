@@ -1,34 +1,79 @@
 # GitLab CI for the intentionally-vulnerable patient-portal demo fixture.
 #
-# The three GitLab security scanner templates below must surface EXACTLY the
-# three planted findings documented in docs/EXPECTED_FINDINGS.md (SQL injection,
-# hardcoded secret, vulnerable python-jose). The final `verify_findings` job
-# enforces that and fails the pipeline on any drift.
+# TIER: this project runs on GitLab Free. GitLab's managed Dependency Scanning,
+# GitLab Advanced SAST, and SAST ruleset customization are all Ultimate-only, so
+# we do NOT use them. Instead we run OSS/cluster scanners directly and emit the
+# gl-*-report.json artifacts the verify gate reads:
+#   - SAST (the SQLi)      -> Semgrep OSS + a repo-local rule (ci/semgrep/)
+#   - Dependency Scanning  -> ACS (roxctl image scan) -> adapter -> GitLab report
+#   - Secret Detection     -> GitLab's managed template (available on Free)
+#
+# All three jobs use python:3.13-slim, which is known to run under OpenShift's
+# restricted SCC (arbitrary UID). verify_findings asserts EXACTLY the three
+# planted findings in docs/EXPECTED_FINDINGS.md and fails the pipeline on drift.
 
 stages:
   - test
   - verify
 
 include:
-  - template: Security/SAST.gitlab-ci.yml
+  # Secret Detection (gitleaks) runs on GitLab Free and emits
+  # gl-secret-detection-report.json.
   - template: Security/Secret-Detection.gitlab-ci.yml
-  - template: Security/Dependency-Scanning.gitlab-ci.yml
 
 variables:
-  # CRITICAL: keep scanners off vendored/test/doc code so only the three planted
-  # findings appear. app/static/ holds the vendored htmx.min.js (would otherwise
-  # add JS findings). Setting this REPLACES the template default
-  # ("spec, test, tests, tmp"), so those are repeated here.
-  SAST_EXCLUDED_PATHS: "app/static, tests, docs, scripts, spec, test, tmp"
-  # Same idea for gitleaks: sample fixtures/docs must never add a 2nd secret finding.
+  # Sample fixtures/docs must never add a 2nd secret finding.
   SECRET_DETECTION_EXCLUDED_PATHS: "tests, docs, scripts"
+  # Image that ACS scans for the dependency finding (built+pushed by GitHub Actions).
+  SCAN_IMAGE: "ghcr.io/kenmoini/demo-patient-portal:latest"
+  # ACS: set ROX_ENDPOINT and ROX_API_TOKEN as CI/CD variables (masked).
+  # If Central uses a self-signed cert, set ROX_INSECURE_CLIENT_SKIP_TLS_VERIFY=true.
+
+# --- SAST via Semgrep OSS -----------------------------------------------------
+# Offline scan against a repo-local rule (no registry fetch). --gitlab-sast
+# writes the GitLab SAST schema; verify_findings matches by the rule id. Only
+# app/ is scanned, so the vendored htmx.min.js and tests/docs add no findings.
+semgrep-sast:
+  stage: test
+  image: python:3.13-slim
+  variables:
+    HOME: /tmp      # semgrep needs a writable HOME under OpenShift's arbitrary UID
+  script:
+    - python -m venv /tmp/venv && . /tmp/venv/bin/activate
+    - pip install --no-cache-dir "semgrep==1.182.1"
+    - semgrep scan --config ci/semgrep/ --gitlab-sast --output gl-sast-report.json app/
+  artifacts:
+    when: always
+    paths: [gl-sast-report.json]
+    reports:
+      sast: gl-sast-report.json
+
+# --- Dependency Scanning via ACS (roxctl) ------------------------------------
+# roxctl (downloaded from Central, so its version matches the cluster) asks
+# Central/Scanner V4 to scan the image; the adapter keeps only language-level
+# (application dependency) findings so base-image OS CVEs don't flood the gate.
+dependency_scanning:
+  stage: test
+  image: python:3.13-slim
+  variables:
+    HOME: /tmp
+  script:
+    - python scripts/download_roxctl.py ./roxctl
+    - ./roxctl image scan --endpoint "$ROX_ENDPOINT" --image "$SCAN_IMAGE" --output json > roxctl-scan.json
+    - python scripts/roxctl_to_gl_depscan.py roxctl-scan.json gl-dependency-scanning-report.json
+  artifacts:
+    when: always
+    paths:
+      - roxctl-scan.json
+      - gl-dependency-scanning-report.json
+    reports:
+      dependency_scanning: gl-dependency-scanning-report.json
 
 verify_findings:
   stage: verify
   image: python:3.13-slim
   # Scanner jobs run in the earlier `test` stage; their gl-*-report.json
-  # artifacts are downloaded into the working directory by default (no explicit
-  # `dependencies:` so scanner job renames across template versions cannot break it).
+  # artifacts are downloaded into the working directory by default.
   script:
     - ls -1 gl-*-report.json
     # Known accepted transitive extra (ecdsa CVE-2024-23342) is baked into

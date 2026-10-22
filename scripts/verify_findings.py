@@ -107,9 +107,23 @@ class Expected:
     matches: Callable[[Finding], bool]
 
 
+# Our Semgrep OSS rule id (ci/semgrep/sqli.yml). Semgrep OSS does not emit a CWE
+# identifier into --gitlab-sast output, so we also match the SQLi by this rule id.
+SQLI_RULE_ID = "SQLALCHEMY-TEXT-FSTRING-SQL-INJECTION"
+
+
 def _is_sqli(f: Finding) -> bool:
-    # rule/CWE + path: SQLi identified by CWE-89 or Bandit B608 in the planted file
-    return _file_of(f) == SQLI_FILE and (_has_cwe(f, "89") or "B608" in _identifier_values(f))
+    # SQLi in the planted file, identified by CWE-89, Bandit B608, or our
+    # Semgrep rule id (identifier values are upper-cased; the rule id may be
+    # namespaced, e.g. "ci.semgrep.sqli.sqlalchemy-text-fstring-sql-injection").
+    if _file_of(f) != SQLI_FILE:
+        return False
+    idents = _identifier_values(f)
+    return (
+        _has_cwe(f, "89")
+        or "B608" in idents
+        or any(SQLI_RULE_ID in v for v in idents)
+    )
 
 
 def _is_secret(f: Finding) -> bool:

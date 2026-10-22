@@ -1,0 +1,43 @@
+# Repo-local Semgrep rule for the planted hero SQL injection.
+#
+# WHY A CUSTOM RULE: this project runs on GitLab Free, where managed SAST
+# ruleset customization and GitLab Advanced SAST are Ultimate-only. We run
+# Semgrep OSS directly in CI (see .gitlab-ci.yml) with this rule. No network /
+# registry is needed at scan time.
+#
+# WHY `text(...)` AND NOT `text(f"...")`: the planted sink is a multi-line,
+# implicitly-concatenated f-string:
+#     query = text(
+#         f"SELECT ... "
+#         f"FROM patients WHERE full_name LIKE '%{q}%'"
+#     )
+# `text(f"...")` matches a single f-string literal and MISSES the concatenated
+# form (verified). `text(...)` with the static-string exclusions below matches
+# the vulnerable call and, importantly, STOPS matching once the query is
+# parameterized to `text("... :pattern")` (the intended fix) — so the agent's
+# remediation makes the finding disappear.
+#
+# verify_findings.py matches this finding by this rule id (semgrep OSS does not
+# emit a CWE identifier into --gitlab-sast output); the CWE/OWASP metadata below
+# is documentation and shows in the finding description.
+rules:
+  - id: sqlalchemy-text-fstring-sql-injection
+    languages: [python]
+    severity: ERROR
+    message: >
+      SQL injection: untrusted input is interpolated into a SQLAlchemy text()
+      query instead of using a bound parameter. An attacker controls part of the
+      SQL statement. Use text("... :name") with execute(query, {"name": value}).
+    metadata:
+      cwe:
+        - "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      owasp:
+        - "A03:2021 - Injection"
+      references:
+        - https://docs.sqlalchemy.org/en/20/core/connections.html#sqlalchemy.text
+    patterns:
+      - pattern: text(...)
+      # Exclude the safe, parameterized form (a static string literal argument):
+      # this is what the fix looks like, and it must NOT be flagged.
+      - pattern-not: text("...")
+      - pattern-not: text('...')
