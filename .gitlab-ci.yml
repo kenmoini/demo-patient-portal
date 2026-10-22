@@ -31,6 +31,8 @@ verify_findings:
   # `dependencies:` so scanner job renames across template versions cannot break it).
   script:
     - ls -1 gl-*-report.json
+    # Known accepted transitive extra (ecdsa CVE-2024-23342) is baked into
+    # ACCEPTED_TRANSITIVE in the script and documented in docs/EXPECTED_FINDINGS.md.
     - python scripts/verify_findings.py --report-dir .
   rules:
     - if: $CI_COMMIT_BRANCH || $CI_MERGE_REQUEST_IID

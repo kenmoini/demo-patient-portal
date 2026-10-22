@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.verify_findings import FindingsMismatch, verify_findings
+from scripts.verify_findings import ACCEPTED_TRANSITIVE, FindingsMismatch, verify_findings
 
 FIXTURES = Path(__file__).parent / "fixtures"
 SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "verify_findings.py"
@@ -102,6 +102,65 @@ def test_same_file_but_wrong_cwe_does_not_satisfy_sqli(tmp_path):
     with pytest.raises(FindingsMismatch) as exc:
         verify_findings(d)
     assert "sql-injection" in str(exc.value)
+
+
+def _add_dep_finding(report_dir: Path, *, cve: str, package: str, severity: str) -> None:
+    def add(v):
+        extra = json.loads(json.dumps(v[0]))
+        extra["id"] = f"extra-{cve}"
+        extra["severity"] = severity
+        extra["identifiers"] = [{"type": "cve", "name": cve, "value": cve}]
+        extra["location"]["dependency"]["package"]["name"] = package
+        v.append(extra)
+
+    _mutate(report_dir, DEPS, add)
+
+
+def test_accepted_list_names_ecdsa_cve():
+    assert "CVE-2024-23342" in ACCEPTED_TRANSITIVE
+
+
+def test_transitive_ecdsa_high_passes_by_default(tmp_path):
+    # known accepted transitive: gate passes out of the box
+    d = _copy_good(tmp_path)
+    _add_dep_finding(d, cve="CVE-2024-23342", package="ecdsa", severity="High")
+    assert verify_findings(d) is None
+
+
+def test_transitive_ecdsa_high_fails_when_not_allowed(tmp_path):
+    d = _copy_good(tmp_path)
+    _add_dep_finding(d, cve="CVE-2024-23342", package="ecdsa", severity="High")
+    with pytest.raises(FindingsMismatch, match="unexpected"):
+        verify_findings(d, accepted_transitive=())
+
+
+def test_transitive_ecdsa_high_passes_when_explicitly_allowed(tmp_path):
+    d = _copy_good(tmp_path)
+    _add_dep_finding(d, cve="CVE-2024-23342", package="ecdsa", severity="High")
+    assert verify_findings(d, accepted_transitive=(), allow=("CVE-2024-23342",)) is None
+
+
+def test_new_critical_on_python_jose_fails(tmp_path):
+    # no blanket python-jose waiver: a new Critical not in either list must fail
+    d = _copy_good(tmp_path)
+    _add_dep_finding(d, cve="CVE-2099-12345", package="python-jose", severity="Critical")
+    with pytest.raises(FindingsMismatch, match="unexpected") as exc:
+        verify_findings(d)
+    assert "CVE-2099-12345" in str(exc.value)
+
+
+def test_new_high_on_ecdsa_not_in_list_fails(tmp_path):
+    d = _copy_good(tmp_path)
+    _add_dep_finding(d, cve="CVE-2099-54321", package="ecdsa", severity="High")
+    with pytest.raises(FindingsMismatch, match="unexpected"):
+        verify_findings(d)
+
+
+def test_cli_passes_with_accepted_ecdsa(tmp_path):
+    d = _copy_good(tmp_path)
+    _add_dep_finding(d, cve="CVE-2024-23342", package="ecdsa", severity="High")
+    r = _run_cli(d)
+    assert r.returncode == 0, r.stderr
 
 
 def _run_cli(report_dir: Path):

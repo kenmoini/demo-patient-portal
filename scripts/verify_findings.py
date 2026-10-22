@@ -16,8 +16,11 @@ and asserts (see docs/EXPECTED_FINDINGS.md):
 It FAILS (FindingsMismatch / exit code 1) when an expected finding is missing,
 a report file is absent or unreadable, or an UNEXPECTED High/Critical finding
 appears. Lower-severity extras are reported as notes but tolerated (use
---strict to fail on those too), as are other advisories against the same
-package as the planted dependency (python-jose), which share its root cause.
+--strict to fail on those too).
+
+There is NO blanket waiver for python-jose: any advisory on it (or its
+dependency closure) other than the expected CVE-2024-33663 and the explicit
+ACCEPTED_TRANSITIVE list below is "unexpected" and fails if High/Critical.
 
 Plain stdlib only (json, pathlib, argparse).
 """
@@ -42,6 +45,15 @@ SECRET_FILE = "app/config.py"
 DEPENDENCY_FILE = "requirements.txt"
 DEPENDENCY_CVE = "CVE-2024-33663"
 DEPENDENCY_PACKAGE = "python-jose"
+
+
+# Known, ACCEPTED extras (documented in docs/EXPECTED_FINDINGS.md): transitive
+# advisories that the pinned python-jose==3.3.0 drags in and that cannot be
+# separately fixed. Keyed by identifier (CVE); value is the rationale.
+# Keep this list explicit and minimal - anything else High/Critical must fail.
+ACCEPTED_TRANSITIVE = {
+    "CVE-2024-23342": "ecdsa (transitive via python-jose), High, no upstream fix (Minerva timing attack)",
+}
 
 
 class FindingsMismatch(AssertionError):
@@ -119,11 +131,6 @@ EXPECTED = (
 )
 
 
-def _is_related_to_planted_dependency(f: Finding) -> bool:
-    """Other advisories on the planted package (same root cause: the pinned version)."""
-    return _file_of(f) == DEPENDENCY_FILE and _package_of(f) == DEPENDENCY_PACKAGE
-
-
 def _load(report_dir: Path, name: str, problems: list[str]) -> list[Finding]:
     path = report_dir / name
     if not path.is_file():
@@ -149,17 +156,24 @@ def _describe(f: Finding) -> str:
     return f"[{f.get('severity', '?')}] {f.get('name', f.get('id', '?'))} @ {where} ({ids})"
 
 
-def verify_findings(report_dir, *, strict: bool = False, allow: tuple[str, ...] = ()) -> None:
+def verify_findings(
+    report_dir,
+    *,
+    strict: bool = False,
+    allow: tuple[str, ...] = (),
+    accepted_transitive=ACCEPTED_TRANSITIVE,
+) -> None:
     """Assert the reports in `report_dir` contain exactly the three planted findings.
 
     Returns None on success; raises FindingsMismatch listing every problem otherwise.
-    `allow` is an optional collection of finding ids / identifier values (e.g. a
-    known transitive CVE) to ignore. With `strict`, any extra finding fails, not
-    just High/Critical.
+    `accepted_transitive` (default ACCEPTED_TRANSITIVE) is the documented set of
+    known transitive CVEs that are ignored; pass () to disable it. `allow` adds
+    further finding ids / identifier values to ignore. With `strict`, any other
+    extra finding fails, not just High/Critical.
     """
     report_dir = Path(report_dir)
     problems: list[str] = []
-    allowed = {a.upper() for a in allow}
+    allowed = {a.upper() for a in (*accepted_transitive, *allow)}
 
     reports = {name: _load(report_dir, name, problems) for name in REPORT_FILES}
 
@@ -174,9 +188,10 @@ def verify_findings(report_dir, *, strict: bool = False, allow: tuple[str, ...] 
     notes: list[Finding] = []
     for findings in reports.values():
         for f in findings:
-            if id(f) in claimed or _is_related_to_planted_dependency(f):
+            if id(f) in claimed:
                 continue
             if str(f.get("id", "")).upper() in allowed or allowed & _identifier_values(f):
+                print(f"note: accepted/allowed extra finding: {_describe(f)}")
                 continue
             blocking = strict or str(f.get("severity", "")).lower() in BLOCKING_SEVERITIES
             (unexpected if blocking else notes).append(f)
@@ -198,7 +213,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--report-dir", default=".", help="directory holding the gl-*-report.json files (default: .)")
     ap.add_argument("--strict", action="store_true", help="fail on ANY extra finding, not just High/Critical")
     ap.add_argument("--allow", action="append", default=[], metavar="ID",
-                    help="finding id / CVE / identifier to ignore (repeatable)")
+                    help="extra finding id / CVE to ignore, in addition to the built-in "
+                         "ACCEPTED_TRANSITIVE list (repeatable)")
     args = ap.parse_args(argv)
     try:
         verify_findings(args.report_dir, strict=args.strict, allow=tuple(args.allow))

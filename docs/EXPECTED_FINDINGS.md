@@ -38,14 +38,25 @@ and by `tests/test_verify_findings.py`) enforces it. All data is synthetic; the
 3. **vulnerable-dependency** - bump `python-jose` to the patched release
    (`>=3.4.0`) in `requirements.txt`.
 
+## Known, accepted extras (documented, not silent)
+
+| id | Package | Severity | Why accepted |
+|----|---------|----------|--------------|
+| `CVE-2024-23342` | `ecdsa` (transitive dependency of `python-jose`) | High | Minerva timing side-channel; no upstream fix exists. Cannot be removed without changing the pinned `python-jose==3.3.0`, which is part of the planted finding. |
+
+These are listed in `ACCEPTED_TRANSITIVE` in `scripts/verify_findings.py`, so the
+gate passes out of the box on the first real pipeline run. The list is explicit:
+every other High/Critical (including any new advisory on `python-jose` or `ecdsa`)
+still fails the gate as unexpected.
+
 ## Matching rules used by the verifier
 
 - SQLi: SAST finding in `app/routers/patients_api.py` with CWE-89 or Bandit `B608`.
 - Secret: Secret Detection finding in `app/config.py`.
 - Dependency: Dependency Scanning finding carrying `CVE-2024-33663`.
 - Fails if any of the three is missing, a report file is absent, or any **other**
-  High/Critical finding appears. Lower-severity extras are tolerated (noted), as are
-  other advisories on `python-jose` itself (same root cause - e.g. CVE-2024-33664).
+  High/Critical finding appears (other than the accepted list above). There is no
+  blanket waiver for `python-jose`. Lower-severity extras are tolerated (noted).
 
 ## Keeping the count at three
 
@@ -53,6 +64,6 @@ and by `tests/test_verify_findings.py`) enforces it. All data is synthetic; the
   `htmx.min.js`), `tests/`, `docs/` and `scripts/`; Secret Detection excludes the
   same test/doc paths so no sample or doc copy becomes a fourth finding. Do not put
   the literal key anywhere except `app/config.py`.
-- If a scanner adds a legitimate transitive advisory (e.g. a High on a dependency of
-  `python-jose`), triage it deliberately: pin/bump it, or pass
-  `--allow <CVE-or-id>` to `verify_findings.py`.
+- If a scanner reports another legitimate transitive advisory, triage it
+  deliberately: pin/bump it, or add it to `ACCEPTED_TRANSITIVE` (with rationale and
+  a row in the table above), or pass `--allow <CVE-or-id>` for a one-off.
