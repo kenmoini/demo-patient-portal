@@ -6,7 +6,7 @@ metadata:
 spec:
   type: ClusterIP
   selector:
-    app: patient-portal
+    app.kubernetes.io/name: patient-portal
   ports:
     - name: http
       port: 8000
