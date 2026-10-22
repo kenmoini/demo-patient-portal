@@ -1,3 +1,5 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -6,14 +8,22 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.auth import router as auth_router
 from app.config import get_settings
+from app.db import ensure_db_ready
 from app.routers.patients_api import router as patients_api_router
 from app.routers.portal import router as portal_router
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """Create the schema and seed synthetic data on startup so a fresh DB needs no manual step."""
+    ensure_db_ready()
+    yield
+
+
 def create_app() -> FastAPI:
-    app = FastAPI(title="Patient Portal (demo fixture)")
+    app = FastAPI(title="Patient Portal (demo fixture)", lifespan=lifespan)
 
     app.add_middleware(
         SessionMiddleware,

@@ -1,11 +1,12 @@
 from collections.abc import Iterator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import get_settings
-from app.models import Base
+from app.models import Base, Patient
+from app.seed import seed
 
 _engine: Engine | None = None
 _SessionLocal: sessionmaker[Session] | None = None
@@ -25,6 +26,18 @@ def get_engine() -> Engine:
 def init_db() -> None:
     """Create all tables (idempotent)."""
     Base.metadata.create_all(get_engine())
+
+
+def ensure_db_ready() -> None:
+    """Create the schema and load the synthetic seed data if the DB is empty.
+
+    Idempotent: safe to run on every startup. A populated DB is left untouched.
+    """
+    init_db()
+    assert _SessionLocal is not None
+    with _SessionLocal() as session:
+        if session.scalar(select(func.count()).select_from(Patient)) == 0:
+            seed(session)
 
 
 def get_session() -> Iterator[Session]:

@@ -109,3 +109,26 @@ def make_token(oidc_keypair):
         return jose_jwt.encode(claims, _key or private_pem, algorithm="RS256", headers={"kid": _kid})
 
     return make
+
+
+# ---------------------------------------------------------------------------
+# Keep the app's own DB (used by startup) out of the repo cwd during tests.
+# ---------------------------------------------------------------------------
+def reset_db_engine():
+    """Drop the cached engine so the next get_engine() re-reads Settings.DATABASE_URL."""
+    from app import db
+
+    db._engine = None
+    db._SessionLocal = None
+
+
+@pytest.fixture(autouse=True)
+def isolated_database_url(tmp_path, monkeypatch):
+    from app.config import get_settings
+
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'test.sqlite3'}")
+    get_settings.cache_clear()
+    reset_db_engine()
+    yield
+    reset_db_engine()
+    get_settings.cache_clear()
