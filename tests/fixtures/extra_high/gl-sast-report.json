@@ -1,0 +1,70 @@
+{
+  "version": "15.0.7",
+  "scan": {
+    "analyzer": {
+      "id": "semgrep",
+      "name": "semgrep",
+      "version": "0.0.0-sample",
+      "vendor": {
+        "name": "GitLab"
+      }
+    },
+    "scanner": {
+      "id": "semgrep",
+      "name": "semgrep",
+      "version": "0.0.0-sample",
+      "vendor": {
+        "name": "GitLab"
+      }
+    },
+    "type": "sast",
+    "status": "success",
+    "start_time": "2026-10-22T00:00:00",
+    "end_time": "2026-10-22T00:00:30"
+  },
+  "vulnerabilities": [
+    {
+      "id": "sample-sast-0001",
+      "category": "sast",
+      "name": "Possible SQL injection vector through string-based query construction",
+      "description": "SQL query built from user input via f-string; use bound parameters instead.",
+      "severity": "High",
+      "location": {
+        "file": "app/routers/patients_api.py",
+        "start_line": 59,
+        "end_line": 60
+      },
+      "identifiers": [
+        {
+          "type": "bandit_test_id",
+          "name": "Bandit Test ID B608",
+          "value": "B608"
+        },
+        {
+          "type": "cwe",
+          "name": "CWE-89",
+          "value": "89",
+          "url": "https://cwe.mitre.org/data/definitions/89.html"
+        }
+      ]
+    },
+    {
+      "id": "sample-sast-0002",
+      "category": "sast",
+      "name": "Use of eval",
+      "description": "Sample unexpected High finding.",
+      "severity": "High",
+      "location": {
+        "file": "app/main.py",
+        "start_line": 1
+      },
+      "identifiers": [
+        {
+          "type": "cwe",
+          "name": "CWE-95",
+          "value": "95"
+        }
+      ]
+    }
+  ]
+}

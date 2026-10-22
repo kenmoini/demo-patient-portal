@@ -1,0 +1,36 @@
+# GitLab CI for the intentionally-vulnerable patient-portal demo fixture.
+#
+# The three GitLab security scanner templates below must surface EXACTLY the
+# three planted findings documented in docs/EXPECTED_FINDINGS.md (SQL injection,
+# hardcoded secret, vulnerable python-jose). The final `verify_findings` job
+# enforces that and fails the pipeline on any drift.
+
+stages:
+  - test
+  - verify
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+  - template: Security/Dependency-Scanning.gitlab-ci.yml
+
+variables:
+  # CRITICAL: keep scanners off vendored/test/doc code so only the three planted
+  # findings appear. app/static/ holds the vendored htmx.min.js (would otherwise
+  # add JS findings). Setting this REPLACES the template default
+  # ("spec, test, tests, tmp"), so those are repeated here.
+  SAST_EXCLUDED_PATHS: "app/static, tests, docs, scripts, spec, test, tmp"
+  # Same idea for gitleaks: sample fixtures/docs must never add a 2nd secret finding.
+  SECRET_DETECTION_EXCLUDED_PATHS: "tests, docs, scripts"
+
+verify_findings:
+  stage: verify
+  image: python:3.13-slim
+  # Scanner jobs run in the earlier `test` stage; their gl-*-report.json
+  # artifacts are downloaded into the working directory by default (no explicit
+  # `dependencies:` so scanner job renames across template versions cannot break it).
+  script:
+    - ls -1 gl-*-report.json
+    - python scripts/verify_findings.py --report-dir .
+  rules:
+    - if: $CI_COMMIT_BRANCH || $CI_MERGE_REQUEST_IID

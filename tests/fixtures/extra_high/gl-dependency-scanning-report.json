@@ -1,0 +1,52 @@
+{
+  "version": "15.0.7",
+  "scan": {
+    "analyzer": {
+      "id": "gemnasium",
+      "name": "gemnasium",
+      "version": "0.0.0-sample",
+      "vendor": {
+        "name": "GitLab"
+      }
+    },
+    "scanner": {
+      "id": "gemnasium",
+      "name": "gemnasium",
+      "version": "0.0.0-sample",
+      "vendor": {
+        "name": "GitLab"
+      }
+    },
+    "type": "dependency_scanning",
+    "status": "success",
+    "start_time": "2026-10-22T00:00:00",
+    "end_time": "2026-10-22T00:00:30"
+  },
+  "vulnerabilities": [
+    {
+      "id": "sample-dep-0001",
+      "category": "dependency_scanning",
+      "name": "python-jose algorithm confusion with OpenSSH ECDSA keys",
+      "description": "Affected versions allow JWT algorithm confusion.",
+      "cve": "requirements.txt:python-jose:gemnasium:sample-CVE-2024-33663",
+      "severity": "High",
+      "location": {
+        "file": "requirements.txt",
+        "dependency": {
+          "package": {
+            "name": "python-jose"
+          },
+          "version": "3.3.0"
+        }
+      },
+      "identifiers": [
+        {
+          "type": "cve",
+          "name": "CVE-2024-33663",
+          "value": "CVE-2024-33663",
+          "url": "https://nvd.nist.gov/vuln/detail/CVE-2024-33663"
+        }
+      ]
+    }
+  ]
+}
