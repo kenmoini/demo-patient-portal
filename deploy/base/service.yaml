@@ -1,0 +1,13 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: patient-portal
+spec:
+  type: ClusterIP
+  selector:
+    app: patient-portal
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000

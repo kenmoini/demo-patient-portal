@@ -1,0 +1,14 @@
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: patient-portal
+spec:
+  to:
+    kind: Service
+    name: patient-portal
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
