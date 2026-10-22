@@ -276,3 +276,39 @@ def test_callback_without_code_or_error_is_400(oidc_env, make_token, monkeypatch
     r = c.get("/auth/callback", params={"state": state})
     assert r.status_code == 400
     assert calls == []
+
+
+# --- callback failures are diagnosable from the logs -------------------------
+
+def test_callback_logs_token_exchange_failure_cause(oidc_env, monkeypatch, caplog):
+    import logging
+
+    from app import auth
+
+    def fail_post(url, data=None, **kw):
+        raise auth.httpx.ConnectError("[SSL: CERTIFICATE_VERIFY_FAILED] self-signed certificate in chain")
+
+    monkeypatch.setattr(auth.httpx, "post", fail_post)
+    c = _client()
+    state = _login_state(c)
+    with caplog.at_level(logging.WARNING, logger="app.auth"):
+        r = c.get("/auth/callback", params={"code": "abc", "state": state})
+    assert r.status_code == 401
+    assert r.json()["detail"] == "authentication failed"  # client still gets nothing specific
+    msgs = [rec.getMessage() for rec in caplog.records]
+    assert any("token exchange" in m and "CERTIFICATE_VERIFY_FAILED" in m and "ConnectError" in m for m in msgs), msgs
+    assert not any("test-client-secret" in m or "abc" in m.split() for m in msgs)  # no secrets / codes in logs
+
+
+def test_callback_logs_token_validation_failure_cause(oidc_env, make_token, monkeypatch, caplog):
+    import logging
+
+    id_token = make_token(at_hash="AAAAAAAAAAAAAAAAAAAAAA")
+    _stub_token_endpoint(monkeypatch, id_token)
+    c = _client()
+    state = _login_state(c)
+    with caplog.at_level(logging.WARNING, logger="app.auth"):
+        r = c.get("/auth/callback", params={"code": "abc", "state": state})
+    assert r.status_code == 401
+    msgs = [rec.getMessage() for rec in caplog.records]
+    assert any("token validation" in m and "JWTClaimsError" in m and "at_hash" in m for m in msgs), msgs

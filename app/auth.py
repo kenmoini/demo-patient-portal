@@ -2,6 +2,7 @@
 
 import base64
 import hashlib
+import logging
 import secrets
 from urllib.parse import urlencode
 
@@ -12,6 +13,7 @@ from jose import JWTError, jwt
 
 from app.config import Settings, get_settings
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 SESSION_CLAIMS_KEY = "claims"
@@ -107,6 +109,7 @@ def callback(
     if not code or not verifier:
         raise HTTPException(status_code=400, detail="missing authorization code")
     settings = get_settings()
+    stage = "token exchange"
     try:
         resp = httpx.post(
             settings.token_url,
@@ -122,8 +125,19 @@ def callback(
         )
         resp.raise_for_status()
         tokens = resp.json()
+        stage = "token validation"
         claims = validate_token(tokens["id_token"], access_token=tokens["access_token"])
     except (httpx.HTTPError, KeyError, ValueError, JWTError) as exc:
+        # The browser only ever sees a generic 401; the real cause (TLS trust, bad client
+        # secret, wrong issuer/audience, ...) goes to the server log. Never log the code,
+        # client secret, or tokens themselves.
+        logger.warning(
+            "OIDC callback failed during %s against %s: %s: %s",
+            stage,
+            settings.token_url,
+            type(exc).__name__,
+            exc,
+        )
         raise HTTPException(status_code=401, detail="authentication failed") from exc
     request.session[SESSION_CLAIMS_KEY] = claims
     return RedirectResponse("/", status_code=303)
