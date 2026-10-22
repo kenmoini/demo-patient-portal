@@ -1,5 +1,7 @@
+import secrets
 from functools import lru_cache
 
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Synthetic demo fixture: this is a fake, non-functional AWS-style key.
@@ -17,10 +19,15 @@ class Settings(BaseSettings):
     KEYCLOAK_CLIENT_SECRET: str = ""
     KEYCLOAK_JWKS_URL: str = ""
     OIDC_REDIRECT_URI: str = ""  # defaults to APP_BASE_URL + /auth/callback
-    # Dev-only placeholder so create_app() stays importable; real value comes from env.
-    SESSION_SECRET: str = "dev-only-change-me"
+    # Real value comes from env. If unset/empty, a random per-process key is generated
+    # (fails safe: no known signing key in source; sessions just don't survive a restart).
+    SESSION_SECRET: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     APP_BASE_URL: str = "http://localhost:8000"
 
+    @field_validator("SESSION_SECRET", mode="after")
+    @classmethod
+    def _no_empty_session_secret(cls, v: str) -> str:
+        return v or secrets.token_urlsafe(32)
 
     @property
     def issuer(self) -> str:

@@ -1,3 +1,7 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+filterwarnings = [
+    # Raised inside the pinned python-jose 3.3.0 (intentionally not bumped); scoped to that module only.
+    "ignore:datetime.datetime.utcnow\\(\\) is deprecated:DeprecationWarning:jose.jwt",
+]

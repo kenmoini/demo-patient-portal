@@ -34,15 +34,19 @@ def _signing_key(token: str) -> dict:
     raise JWTError("no matching signing key")
 
 
-def validate_token(token: str) -> dict:
-    """Validate an RS256 JWT against the Keycloak JWKS and return its claims."""
+def validate_token(token: str, access_token: str | None = None) -> dict:
+    """Validate an RS256 JWT against the Keycloak JWKS and return its claims.
+
+    Pass `access_token` when validating an ID token so its `at_hash` claim is verified.
+    """
     settings = get_settings()
     return jwt.decode(
         token,
         key=_signing_key(token),
         algorithms=["RS256"],
         audience=settings.KEYCLOAK_CLIENT_ID,
-        issuer=settings.KEYCLOAK_ISSUER,
+        issuer=settings.issuer,
+        access_token=access_token,
     )
 
 
@@ -87,7 +91,8 @@ def callback(request: Request, code: str, state: str | None = None) -> RedirectR
             timeout=10.0,
         )
         resp.raise_for_status()
-        claims = validate_token(resp.json()["id_token"])
+        tokens = resp.json()
+        claims = validate_token(tokens["id_token"], access_token=tokens["access_token"])
     except (httpx.HTTPError, KeyError, ValueError, JWTError) as exc:
         raise HTTPException(status_code=401, detail="authentication failed") from exc
     request.session[SESSION_CLAIMS_KEY] = claims

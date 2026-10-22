@@ -65,6 +65,13 @@ def oidc_keypair():
     return private_pem, public
 
 
+@pytest.fixture(scope="session")
+def other_private_pem():
+    """A DIFFERENT RSA private key (not in the JWKS), for forged-signature tests."""
+    _pub, priv = rsa.newkeys(2048)
+    return priv.save_pkcs1().decode()
+
+
 @pytest.fixture
 def oidc_env(monkeypatch, oidc_keypair):
     """Point Settings at a fake issuer and stub the JWKS source with the test key."""
@@ -88,7 +95,7 @@ def make_token(oidc_keypair):
     """Factory that signs a token with the test key; override claims as needed."""
     private_pem, _ = oidc_keypair
 
-    def make(**overrides):
+    def make(_key=None, _kid=TEST_KID, **overrides):
         now = int(time.time())
         claims = {
             "iss": TEST_ISSUER,
@@ -99,6 +106,6 @@ def make_token(oidc_keypair):
             "exp": now + 300,
         }
         claims.update(overrides)
-        return jose_jwt.encode(claims, private_pem, algorithm="RS256", headers={"kid": TEST_KID})
+        return jose_jwt.encode(claims, _key or private_pem, algorithm="RS256", headers={"kid": _kid})
 
     return make
