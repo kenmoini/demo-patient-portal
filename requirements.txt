@@ -8,4 +8,4 @@ pydantic-settings==2.16.1
 faker==40.43.0
 httpx==0.28.1
 itsdangerous==2.2.0
-pytest==9.1.1
+pytest==9.2.0
